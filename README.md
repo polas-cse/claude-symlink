@@ -37,11 +37,11 @@ Restart the Claude app after a `pull` so it re-reads the files.
 
 ## Setting up the remote (do this once)
 
-Create an **empty private** repo on GitHub named `claude-sync`, then:
+Create an **empty private** repo on GitHub named `claude-symlink`, then:
 
 ```powershell
 cd ~\claude-sync
-git remote add origin git@github.com:<your-user>/claude-sync.git
+git remote add origin https://github.com/polas-cse/claude-symlink.git
 git push -u origin main
 ```
 
@@ -52,7 +52,7 @@ the key in an env var and reference it instead.
 ## Setting up a new PC
 
 ```powershell
-git clone git@github.com:<your-user>/claude-sync.git $HOME\claude-sync
+git clone https://github.com/polas-cse/claude-symlink.git $HOME\claude-sync
 cd ~\claude-sync
 .\bin\claude-sync.ps1 link
 .\bin\claude-sync.ps1 pull
