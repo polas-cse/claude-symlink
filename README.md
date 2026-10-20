@@ -23,16 +23,66 @@ or Developer Mode.
 specific, large, or hold credentials. Conversations themselves already follow
 your Claude account; they are not files.
 
+## Automatic sync
+
+`bin/claude-sync.ps1 auto` is the unattended version: it takes whichever copy of
+each file is newer, commits, fetches, merges other PCs' commits, pushes, and
+writes the result back to the live paths. It never prompts, logs to `sync.log`,
+and on a merge conflict it stops and says so instead of guessing.
+
+Register it once per PC — no admin needed, it runs as your own user:
+
+```powershell
+$s = "$HOME\claude-sync\bin\claude-sync.ps1"
+$a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$s`" auto"
+$t1 = New-ScheduledTaskTrigger -AtLogOn
+$t2 = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 3650)
+$set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName 'ClaudeConfigSync' -Action $a -Trigger @($t1,$t2) -Settings $set -Description 'Keeps Claude config in sync' -Force
+```
+
+Check or remove it:
+
+```powershell
+Get-ScheduledTask ClaudeConfigSync | Get-ScheduledTaskInfo
+Unregister-ScheduledTask ClaudeConfigSync -Confirm:$false
+```
+
+The Claude app reads these files at startup, so a change pulled from another PC
+shows up after you restart the app.
+
+### Why not real symlinks
+
+File symlinks on Windows need admin rights or Developer Mode, and this account
+has neither — `New-Item -ItemType SymbolicLink` fails with "Administrator
+privilege required". The folders (`commands/`, `agents/`, `skills/`) are
+directory junctions, which need no admin, so those are genuinely live. The two
+single files are copied by `auto` instead.
+
+If you turn on **Settings → System → For developers → Developer Mode**, symlinks
+start working for your user and the two files can be linked instead of copied:
+
+```powershell
+New-Item -ItemType SymbolicLink -Path "$HOME\.claude\settings.json" -Target "$HOME\claude-sync\claude\settings.json" -Force
+New-Item -ItemType SymbolicLink -Path "$HOME\.claude\CLAUDE.md" -Target "$HOME\claude-sync\claude\CLAUDE.md" -Force
+```
+
+Even then the scheduled task is still needed — a symlink makes a file live on
+one PC, but only git moves it between PCs.
+
 ## Daily use
+
+With the task registered you do nothing. These are for when you want it now:
 
 ```powershell
 cd ~\claude-sync
-.\bin\claude-sync.ps1 push     # after changing config on this PC
-.\bin\claude-sync.ps1 pull     # before working on another PC
+.\bin\claude-sync.ps1 auto     # sync both ways right now
 .\bin\claude-sync.ps1 status   # see what differs
+.\bin\claude-sync.ps1 push     # force live -> repo
+.\bin\claude-sync.ps1 pull     # force repo -> live
 ```
 
-Restart the Claude app after a `pull` so it re-reads the files.
+Restart the Claude app afterwards so it re-reads the files.
 
 ## Setting up the remote (do this once)
 
@@ -60,8 +110,10 @@ to `$Files` in `bin/claude-sync.ps1` and keep any tokens in env vars.
 git clone https://github.com/polas-cse/claude-symlink.git $HOME\claude-sync
 cd ~\claude-sync
 .\bin\claude-sync.ps1 link
-.\bin\claude-sync.ps1 pull
+.\bin\claude-sync.ps1 auto
 ```
+
+Then register the scheduled task from the **Automatic sync** section above.
 
 `link` preserves whatever that PC already had: existing `commands/`, `agents/`
 or `skills/` contents are copied into the repo first, and any replaced file or
