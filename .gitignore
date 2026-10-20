@@ -1,0 +1,12 @@
+# never sync machine-local / sensitive state
+*.local.json
+settings.local.json
+.credentials.json
+sessions/
+projects/
+cache/
+shell-snapshots/
+file-history/
+session-env/
+backups/
+*.log
