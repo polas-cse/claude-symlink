@@ -33,20 +33,18 @@ and on a merge conflict it stops and says so instead of guessing.
 Register it once per PC — no admin needed, it runs as your own user:
 
 ```powershell
-$s = "$HOME\claude-sync\bin\claude-sync.ps1"
-$a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$s`" auto"
-$t1 = New-ScheduledTaskTrigger -AtLogOn
-$t2 = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 3650)
-$set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName 'ClaudeConfigSync' -Action $a -Trigger @($t1,$t2) -Settings $set -Description 'Keeps Claude config in sync' -Force
+cd ~\claude-sync
+.\bin\install-task.ps1
 ```
 
-Check or remove it:
+Check it, or remove it:
 
 ```powershell
 Get-ScheduledTask ClaudeConfigSync | Get-ScheduledTaskInfo
-Unregister-ScheduledTask ClaudeConfigSync -Confirm:$false
+.\bin\install-task.ps1 -Remove
 ```
+
+A different interval: `.\bin\install-task.ps1 -IntervalMinutes 5`.
 
 The Claude app reads these files at startup, so a change pulled from another PC
 shows up after you restart the app.
