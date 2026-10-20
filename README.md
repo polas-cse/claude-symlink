@@ -8,7 +8,6 @@ Keeps Claude Code / Claude Desktop configuration identical on every PC.
 | --- | --- | --- |
 | `claude/settings.json` | `~/.claude/settings.json` | copied by `pull`/`push` |
 | `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | copied by `pull`/`push` |
-| `claude-desktop/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` | copied by `pull`/`push` |
 | `claude/commands/` | `~/.claude/commands/` | directory junction (live) |
 | `claude/agents/` | `~/.claude/agents/` | directory junction (live) |
 | `claude/skills/` | `~/.claude/skills/` | directory junction (live) |
@@ -20,7 +19,7 @@ or Developer Mode.
 ## What is NOT synced, on purpose
 
 `sessions/`, `projects/`, `cache/`, `shell-snapshots/`, `file-history/`,
-`backups/`, `.credentials.json`, and any `*.local.json`. These are machine
+`backups/`, `.credentials.json`, `claude-desktop/`, and any `*.local.json`. These are machine
 specific, large, or hold credentials. Conversations themselves already follow
 your Claude account; they are not files.
 
@@ -45,9 +44,15 @@ git remote add origin https://github.com/polas-cse/claude-symlink.git
 git push -u origin main
 ```
 
-Keep it private: `claude_desktop_config.json` can contain MCP server tokens.
-Today's copy has none, but that can change — if you ever put a key in it, put
-the key in an env var and reference it instead.
+Keep it private anyway: `settings.json` can grow env vars and hook commands you
+would not want public.
+
+`%APPDATA%\Claude\claude_desktop_config.json` is **not** synced. It was checked
+and holds no `mcpServers` block — only local UI state (pane layout, starred
+sessions) and this machine's device name, and one field in it changes on every
+session. Copying it between PCs would overwrite each machine's own window state
+for no gain. If you later add MCP servers to Claude Desktop, add that file back
+to `$Files` in `bin/claude-sync.ps1` and keep any tokens in env vars.
 
 ## Setting up a new PC
 

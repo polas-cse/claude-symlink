@@ -10,3 +10,6 @@ file-history/
 session-env/
 backups/
 *.log
+
+# Claude Desktop local UI state / device name - machine specific, never sync
+claude-desktop/

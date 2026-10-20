@@ -23,13 +23,13 @@ $ErrorActionPreference = 'Stop'
 
 $Repo        = Split-Path -Parent $PSScriptRoot
 $ClaudeHome  = Join-Path $HOME '.claude'
-$DesktopHome = Join-Path $env:APPDATA 'Claude'
 
-# repo path -> live path, for files that are copied
+# repo path -> live path, for files that are copied.
+# %APPDATA%\Claude\claude_desktop_config.json is deliberately NOT here: on this
+# install it holds only local UI state and the device name, no MCP servers.
 $Files = @(
-  @{ Repo = 'claude\settings.json';                        Live = (Join-Path $ClaudeHome 'settings.json') }
-  @{ Repo = 'claude\CLAUDE.md';                             Live = (Join-Path $ClaudeHome 'CLAUDE.md') }
-  @{ Repo = 'claude-desktop\claude_desktop_config.json';    Live = (Join-Path $DesktopHome 'claude_desktop_config.json') }
+  @{ Repo = 'claude\settings.json'; Live = (Join-Path $ClaudeHome 'settings.json') }
+  @{ Repo = 'claude\CLAUDE.md';     Live = (Join-Path $ClaudeHome 'CLAUDE.md') }
 )
 
 # folders that become junctions into the repo
