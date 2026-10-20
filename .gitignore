@@ -13,3 +13,5 @@ backups/
 
 # Claude Desktop local UI state / device name - machine specific, never sync
 claude-desktop/
+
+sync.log
