@@ -40,9 +40,31 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries -StartWhenAvailable `
   -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggers `
-  -Settings $settings -Description 'Keeps Claude config in sync with the claude-symlink repo' -Force | Out-Null
+# Register-ScheduledTask can report Access denied and still have written part of
+# the task, so never trust it: check afterwards what the task actually runs.
+$failed = $null
+try {
+  Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggers `
+    -Settings $settings -Description 'Keeps Claude config in sync with the claude-symlink repo' `
+    -Force -ErrorAction Stop | Out-Null
+} catch {
+  $failed = $_.Exception.Message
+}
 
-Write-Host "Registered '$TaskName': at logon and every $IntervalMinutes minutes." -ForegroundColor Green
-Write-Host "Log: $(Join-Path (Split-Path -Parent $PSScriptRoot) 'sync.log')" -ForegroundColor DarkGray
-Get-ScheduledTask -TaskName $TaskName | Select-Object TaskName, State
+$task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+$ok   = $task -and ($task.Actions.Execute -eq 'wscript.exe') -and ($task.Actions.Arguments -like '*run-hidden.vbs*')
+
+if ($ok) {
+  Write-Host "Task '$TaskName' is set: at logon and every $IntervalMinutes minutes, no window." -ForegroundColor Green
+  if ($failed) {
+    Write-Host "  (registration reported `"$failed`", but the task reads correctly now)" -ForegroundColor DarkGray
+  }
+  Write-Host "Log: $(Join-Path (Split-Path -Parent $PSScriptRoot) 'sync.log')" -ForegroundColor DarkGray
+  $task | Select-Object TaskName, State
+} else {
+  Write-Host "Could not set up the task: $failed" -ForegroundColor Red
+  Write-Host 'A task in the root Task Scheduler folder needs elevation to replace.' -ForegroundColor Yellow
+  Write-Host 'Use the Startup folder instead - no admin needed:' -ForegroundColor Yellow
+  Write-Host '  .\bin\install-startup.ps1 -StartNow'
+  exit 1
+}

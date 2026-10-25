@@ -81,7 +81,6 @@ function Invoke-Link {
     cmd /c mklink /J "`"$live`"" "`"$target`"" | Out-Null
     Write-Host "  linked $name" -ForegroundColor Green
   }
-  Write-Host "Now run: .\bin\claude-sync.ps1 pull" -ForegroundColor Cyan
 }
 
 function Invoke-Pull {

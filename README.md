@@ -135,7 +135,7 @@ then paste this into PowerShell. It clones, junctions the folders, syncs the
 config and registers the hidden background task:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "git clone https://github.com/polas-cse/claude-symlink.git $HOME\claude-sync; & $HOME\claude-sync\bin\bootstrap.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if (!(Test-Path $HOME\claude-sync)) { git clone https://github.com/polas-cse/claude-symlink.git $HOME\claude-sync }; & $HOME\claude-sync\bin\bootstrap.ps1"
 ```
 
 Already cloned? Just run the second half:
