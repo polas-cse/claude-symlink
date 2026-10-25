@@ -19,14 +19,15 @@ if ($Remove) {
   return
 }
 
-$script = Join-Path $PSScriptRoot 'claude-sync.ps1'
-if (-not (Test-Path -LiteralPath $script)) {
-  throw "claude-sync.ps1 not found next to this script ($PSScriptRoot)."
+$launcher = Join-Path $PSScriptRoot 'run-hidden.vbs'
+if (-not (Test-Path -LiteralPath $launcher)) {
+  throw "run-hidden.vbs not found next to this script ($PSScriptRoot)."
 }
 
-$argLine = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}" auto' -f $script
-
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $argLine
+# Go through wscript.exe, not powershell.exe: powershell always creates a
+# console window and only then hides it, which is the terminal that flashes for
+# a second every run. wscript is windowless, so nothing appears at all.
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('"{0}"' -f $launcher)
 
 $triggers = @(
   New-ScheduledTaskTrigger -AtLogOn
