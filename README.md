@@ -30,18 +30,38 @@ each file is newer, commits, fetches, merges other PCs' commits, pushes, and
 writes the result back to the live paths. It never prompts, logs to `sync.log`,
 and on a merge conflict it stops and says so instead of guessing.
 
-Register it once per PC — no admin needed, it runs as your own user:
+There are two ways to start it. Both are invisible — no console window ever
+appears, because they go through `wscript.exe` rather than `powershell.exe`.
+PowerShell always creates a console and hides it only afterwards, which is the
+terminal that flashes for about a second.
+
+### Startup folder (recommended, never needs admin)
+
+```powershell
+cd ~\claude-sync
+.\bin\install-startup.ps1 -StartNow
+```
+
+This drops a small stub in your Startup folder that launches
+`bin/run-loop.vbs`, which syncs every 10 minutes for as long as you are logged
+in. Remove it with `.\bin\install-startup.ps1 -Remove`.
+
+Pick this one if `install-task.ps1` gives you **"Register-ScheduledTask :
+Access is denied"**. A task in the root Task Scheduler folder cannot be
+replaced without elevation, so once such a task exists, re-registering it from
+a normal prompt fails. The Startup folder has no such restriction.
+
+### Scheduled task (survives across logons, may need elevation)
 
 ```powershell
 cd ~\claude-sync
 .\bin\install-task.ps1
 ```
 
-The task runs `bin/run-hidden.vbs` through `wscript.exe`, not `powershell.exe`
-directly. PowerShell always creates a console window and hides it only
-afterwards, which showed up as a terminal flashing for about a second on every
-run; `wscript.exe` is windowless, so nothing appears at all. If you registered
-the task before this change, re-run `install-task.ps1` to replace it.
+If this fails with "Access is denied", either run it from an elevated
+PowerShell, or delete the existing `ClaudeConfigSync` task in Task Scheduler
+first and run it again. Do not use both methods at once — they would sync twice
+over each other.
 
 Check it, or remove it:
 
@@ -126,7 +146,8 @@ Already cloned? Just run the second half:
 
 `bootstrap.ps1` is safe to re-run: each step checks before acting, and anything
 it replaces is kept as `*.bak-<timestamp>`. It takes `-Repo <path>` for a
-different location and `-IntervalMinutes <n>` for a different sync interval.
+different location, `-IntervalMinutes <n>` for a different sync interval, and
+`-Startup` to use the Startup folder instead of a scheduled task.
 
 `link` preserves whatever that PC already had: existing `commands/`, `agents/`
 or `skills/` contents are copied into the repo first, and any replaced file or

@@ -11,7 +11,12 @@
 param(
   [string]$Repo = (Join-Path $HOME 'claude-sync'),
   [string]$Url  = 'https://github.com/polas-cse/claude-symlink.git',
-  [int]$IntervalMinutes = 10
+  [int]$IntervalMinutes = 10,
+
+  # Use the Startup folder instead of a scheduled task. Set automatically if
+  # the task registration is denied, which happens when a ClaudeConfigSync task
+  # already exists in the root Task Scheduler folder.
+  [switch]$Startup
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,8 +48,18 @@ Step 'Linking folders into ~/.claude'
 Step 'Syncing config'
 & (Join-Path $bin 'claude-sync.ps1') auto
 
-Step 'Registering the background task'
-& (Join-Path $bin 'install-task.ps1') -IntervalMinutes $IntervalMinutes
+Step 'Starting the background sync'
+if ($Startup) {
+  & (Join-Path $bin 'install-startup.ps1') -StartNow
+} else {
+  try {
+    & (Join-Path $bin 'install-task.ps1') -IntervalMinutes $IntervalMinutes
+  } catch {
+    Write-Host "  scheduled task refused: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host '  falling back to the Startup folder, which needs no admin rights' -ForegroundColor Yellow
+    & (Join-Path $bin 'install-startup.ps1') -StartNow
+  }
+}
 
 Step 'Result'
 & (Join-Path $bin 'claude-sync.ps1') status
