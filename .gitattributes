@@ -1,0 +1,5 @@
+# Keep line endings identical in every clone. Without this, a fresh clone
+# checks out CRLF while another PC has LF, so the same content hashes
+# differently and the sync commits back and forth forever.
+* text eol=lf
+*.vbs text eol=crlf

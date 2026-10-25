@@ -38,6 +38,17 @@ $Files = @(
 # folders that become junctions into the repo
 $Dirs = @('commands', 'agents', 'skills')
 
+# Hash of the content with line endings normalized, so a file the Claude app
+# rewrote as CRLF is not treated as different from the LF copy in the repo.
+# Comparing raw bytes made every fresh clone look out of sync forever.
+function Get-ContentHash($Path) {
+  $text  = [System.IO.File]::ReadAllText($Path) -replace "`r`n", "`n"
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+  $sha   = [System.Security.Cryptography.SHA256]::Create()
+  try { return [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '') }
+  finally { $sha.Dispose() }
+}
+
 function Backup-Path($Path) {
   if (-not (Test-Path -LiteralPath $Path)) { return }
   $stamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -83,7 +94,7 @@ function Invoke-Pull {
     $dstDir = Split-Path -Parent $f.Live
     New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
     if ((Test-Path -LiteralPath $f.Live) -and
-        (Get-FileHash -LiteralPath $f.Live).Hash -ne (Get-FileHash -LiteralPath $src).Hash) {
+        (Get-ContentHash $f.Live) -ne (Get-ContentHash $src)) {
       Backup-Path $f.Live
     }
     Copy-Item -LiteralPath $src -Destination $f.Live -Force
@@ -117,7 +128,7 @@ function Invoke-Status {
     $src = Join-Path $Repo $f.Repo
     if (-not (Test-Path -LiteralPath $f.Live)) { Write-Host "  MISSING live: $($f.Repo)" -ForegroundColor Yellow; continue }
     if (-not (Test-Path -LiteralPath $src))    { Write-Host "  MISSING repo: $($f.Repo)" -ForegroundColor Yellow; continue }
-    $same = (Get-FileHash -LiteralPath $f.Live).Hash -eq (Get-FileHash -LiteralPath $src).Hash
+    $same = (Get-ContentHash $f.Live) -eq (Get-ContentHash $src)
     if ($same) { Write-Host "  in sync: $($f.Repo)" -ForegroundColor Green }
     else       { Write-Host "  DIFFERS: $($f.Repo)" -ForegroundColor Yellow }
   }
@@ -150,7 +161,7 @@ function Invoke-Auto {
         Write-Log "repo had no $($f.Repo); took the live copy"
         continue
       }
-      if ((Get-FileHash -LiteralPath $f.Live).Hash -eq (Get-FileHash -LiteralPath $src).Hash) { continue }
+      if ((Get-ContentHash $f.Live) -eq (Get-ContentHash $src)) { continue }
       if ((Get-Item -LiteralPath $f.Live).LastWriteTimeUtc -gt (Get-Item -LiteralPath $src).LastWriteTimeUtc) {
         Copy-Item -LiteralPath $f.Live -Destination $src -Force
         Write-Log "local edit -> repo: $($f.Repo)"
@@ -188,7 +199,7 @@ function Invoke-Auto {
       $src = Join-Path $Repo $f.Repo
       if (-not (Test-Path -LiteralPath $src)) { continue }
       if ((Test-Path -LiteralPath $f.Live) -and
-          (Get-FileHash -LiteralPath $f.Live).Hash -eq (Get-FileHash -LiteralPath $src).Hash) { continue }
+          (Get-ContentHash $f.Live) -eq (Get-ContentHash $src)) { continue }
       New-Item -ItemType Directory -Force -Path (Split-Path -Parent $f.Live) | Out-Null
       Copy-Item -LiteralPath $src -Destination $f.Live -Force
       Write-Log "repo -> live: $($f.Repo) (restart the Claude app to pick it up)"
