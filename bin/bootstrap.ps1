@@ -9,7 +9,7 @@
     .\bin\bootstrap.ps1 -Repo D:\claude-sync -IntervalMinutes 5
 #>
 param(
-  [string]$Repo = (Join-Path $HOME 'claude-sync'),
+  [string]$Repo = 'C:\claude-sync',
   [string]$Url  = 'https://github.com/polas-cse/claude-symlink.git',
   [int]$IntervalMinutes = 10,
 

@@ -1,11 +1,20 @@
 # claude-sync
 
-Keeps Claude's config the same on every PC: `settings.json`, `CLAUDE.md`,
+Keeps Claude's config the same on every machine: `settings.json`, `CLAUDE.md`,
 `commands/`, `agents/`, `skills/`.
+
+The repo lives outside your user folder on purpose, so clearing a profile,
+reinstalling Claude or deleting a home directory cannot take it with it:
+
+| OS | Where the repo lives |
+| --- | --- |
+| Windows | `C:\claude-sync` |
+| Linux | `/opt/claude-sync` |
+| macOS | `/opt/claude-sync` |
 
 ---
 
-## Set up a new PC
+# Windows
 
 ### Step 1 — Install Git, if it is not there
 
@@ -15,24 +24,20 @@ winget install --id Git.Git
 
 Close and reopen PowerShell afterwards.
 
-### Step 2 — Sign in to GitHub for git
-
-This repo is private, so git needs your account once per PC. The easiest way is
-to let the first clone ask you:
+### Step 2 — Clone, and sign in to GitHub when asked
 
 ```powershell
-git clone https://github.com/polas-cse/claude-symlink.git $HOME\claude-sync
+git clone https://github.com/polas-cse/claude-symlink.git C:\claude-sync
 ```
 
-A browser window opens, sign in, and the clone finishes.
+A browser opens the first time on each PC; sign in and the clone finishes.
+`C:\claude-sync` needs no admin rights — the root of C: allows this.
 
 ### Step 3 — Run the setup
 
 ```powershell
-& $HOME\claude-sync\bin\bootstrap.ps1
+& C:\claude-sync\bin\bootstrap.ps1
 ```
-
-This links the folders, pulls the config, and starts the background sync.
 
 If PowerShell refuses to run it:
 
@@ -42,19 +47,85 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ### Step 4 — Restart the Claude app
 
-It reads the config at startup. That is all — syncing now runs every 10 minutes
-on its own, with no visible window.
+Done. It syncs every 10 minutes from now on, with no visible window.
 
 ---
 
-## Day to day
+# Linux
 
-Nothing. Change your config on any PC and it spreads by itself.
+### Step 1 — Install Git, if it is not there
 
-Only if you want it **right now**, instead of waiting ten minutes:
+```bash
+sudo apt install git        # Debian, Ubuntu
+sudo dnf install git        # Fedora, RHEL
+```
+
+### Step 2 — Clone, and sign in to GitHub when asked
+
+```bash
+sudo mkdir -p /opt/claude-sync && sudo chown "$(id -u):$(id -g)" /opt/claude-sync
+git clone https://github.com/polas-cse/claude-symlink.git /opt/claude-sync
+```
+
+This is the only command that needs `sudo`, because `/opt` belongs to root.
+Everything after it runs as you.
+
+### Step 3 — Run the setup
+
+```bash
+/opt/claude-sync/bin/bootstrap.sh
+```
+
+### Step 4 — Restart the Claude app
+
+Done. A cron entry syncs every 10 minutes.
+
+---
+
+# macOS
+
+### Step 1 — Install Git, if it is not there
+
+```bash
+brew install git
+```
+
+Or just run `git --version`, which offers to install Apple's own copy.
+
+### Step 2 — Clone, and sign in to GitHub when asked
+
+```bash
+sudo mkdir -p /opt/claude-sync && sudo chown "$(id -u):$(id -g)" /opt/claude-sync
+git clone https://github.com/polas-cse/claude-symlink.git /opt/claude-sync
+```
+
+### Step 3 — Run the setup
+
+```bash
+/opt/claude-sync/bin/bootstrap.sh
+```
+
+macOS may ask you to allow cron to manage files; say yes, or the 10-minute sync
+cannot write to `~/.claude`.
+
+### Step 4 — Restart the Claude app
+
+Done.
+
+---
+
+# Day to day — every OS
+
+Nothing. Change your config on any machine and it spreads by itself.
+
+Only if you want it **right now** instead of waiting ten minutes:
 
 ```powershell
-& $HOME\claude-sync\bin\claude-sync.ps1 auto
+& C:\claude-sync\bin\claude-sync.ps1 auto
+```
+
+```bash
+/opt/claude-sync/bin/claude-sync.sh auto
 ```
 
 Then restart the Claude app.
@@ -62,63 +133,82 @@ Then restart the Claude app.
 To see what is going on:
 
 ```powershell
-& $HOME\claude-sync\bin\claude-sync.ps1 status
-Get-Content $HOME\claude-sync\sync.log -Tail 20
+& C:\claude-sync\bin\claude-sync.ps1 status
+Get-Content C:\claude-sync\sync.log -Tail 20
+```
+
+```bash
+/opt/claude-sync/bin/claude-sync.sh status
+tail -20 /opt/claude-sync/sync.log
 ```
 
 ---
 
-## If something is wrong
+# If something is wrong
 
-**A terminal flashes every few minutes.** The background job is being started
-the wrong way. Fix it:
+**A terminal flashes every few minutes** (Windows). The background job is being
+started the wrong way:
 
 ```powershell
-& $HOME\claude-sync\bin\install-task.ps1
+& C:\claude-sync\bin\install-task.ps1
 ```
 
-**That says "Access is denied".** Use the Startup folder instead, which needs no
-admin rights:
+**That says "Access is denied"** (Windows). Use the Startup folder instead,
+which never needs admin:
 
 ```powershell
-& $HOME\claude-sync\bin\install-startup.ps1 -StartNow
+& C:\claude-sync\bin\install-startup.ps1 -StartNow
 ```
 
 Use one or the other, never both — two jobs would sync over each other. Check
 which you have:
 
 ```powershell
-Get-ScheduledTask ClaudeConfigSync -ErrorAction SilentlyContinue   # the task
-Test-Path "$([Environment]::GetFolderPath('Startup'))\claude-sync.vbs"   # the Startup one
+Get-ScheduledTask ClaudeConfigSync -ErrorAction SilentlyContinue
+Test-Path "$([Environment]::GetFolderPath('Startup'))\claude-sync.vbs"
 ```
 
 Remove whichever you do not want:
 
 ```powershell
-& $HOME\claude-sync\bin\install-startup.ps1 -Remove
+& C:\claude-sync\bin\install-startup.ps1 -Remove
 Unregister-ScheduledTask ClaudeConfigSync -Confirm:$false   # may need an admin PowerShell
 ```
 
-**`sync.log` says CONFLICT.** Two PCs changed the same file. Open
-`$HOME\claude-sync`, fix the file by hand, `git add` and `git commit`, then run
-`auto` again.
+**Nothing syncs on Linux or macOS.** Check the cron entry is there, and the log:
 
-**Nothing is syncing.** Check the log. "push failed" means git lost your GitHub
-sign-in on that PC; clone once more by hand to get it back.
+```bash
+crontab -l | grep claude-sync
+tail -20 /opt/claude-sync/sync.log
+```
+
+Reinstall it with `/opt/claude-sync/bin/claude-sync.sh install`, remove it with
+`uninstall`.
+
+**`sync.log` says CONFLICT.** Two machines changed the same file. Open the repo,
+fix the file by hand, `git add` and `git commit`, then run `auto` again.
+
+**`sync.log` says "push failed".** Git lost your GitHub sign-in on that machine.
+Run any `git pull` in the repo by hand to sign in again.
 
 ---
 
-## Reference
+# Reference
 
-What is synced, and how:
+What is synced:
 
-| Repo path | Live path | How |
-| --- | --- | --- |
-| `claude/settings.json` | `~/.claude/settings.json` | copied by `auto` |
-| `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | copied by `auto` |
-| `claude/commands/` | `~/.claude/commands/` | directory junction, always live |
-| `claude/agents/` | `~/.claude/agents/` | directory junction, always live |
-| `claude/skills/` | `~/.claude/skills/` | directory junction, always live |
+| Repo path | Live path | Windows | Linux / macOS |
+| --- | --- | --- | --- |
+| `claude/settings.json` | `~/.claude/settings.json` | copied by `auto` | symlink |
+| `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | copied by `auto` | symlink |
+| `claude/commands/` | `~/.claude/commands/` | junction | symlink |
+| `claude/agents/` | `~/.claude/agents/` | junction | symlink |
+| `claude/skills/` | `~/.claude/skills/` | junction | symlink |
+
+On Linux and macOS everything is a real symlink, so changes are live
+immediately and only git has to move them between machines. On Windows,
+folders can be junctions without admin rights but single files cannot be
+symlinked, so those two are copied by `auto` instead.
 
 Not synced, on purpose: `sessions/`, `projects/`, `cache/`,
 `shell-snapshots/`, `file-history/`, `backups/`, `.credentials.json`,
@@ -126,23 +216,25 @@ Not synced, on purpose: `sessions/`, `projects/`, `cache/`,
 machine specific or hold credentials. Your conversations are not files at all;
 they follow your Claude account.
 
-Scripts in `bin/`:
+Scripts:
 
-| File | What it is for |
-| --- | --- |
-| `bootstrap.ps1` | Step 3 above: does everything for a new PC |
-| `claude-sync.ps1` | the sync itself (`auto`, `status`, `link`, `push`, `pull`) |
-| `install-task.ps1` | starts the sync as a scheduled task |
-| `install-startup.ps1` | starts it from the Startup folder instead, no admin |
-| `run-hidden.vbs` | windowless launcher used by the task |
-| `run-loop.vbs` | windowless 10-minute loop used by the Startup folder |
+| File | Platform | What it is for |
+| --- | --- | --- |
+| `bin/bootstrap.ps1` | Windows | Step 3: does everything for a new PC |
+| `bin/claude-sync.ps1` | Windows | the sync itself (`auto`, `status`, `link`, `push`, `pull`) |
+| `bin/install-task.ps1` | Windows | runs the sync as a scheduled task |
+| `bin/install-startup.ps1` | Windows | runs it from the Startup folder instead, no admin |
+| `bin/run-hidden.vbs` | Windows | windowless launcher used by the task |
+| `bin/run-loop.vbs` | Windows | windowless 10-minute loop used by the Startup folder |
+| `bin/bootstrap.sh` | Linux, macOS | Step 3: does everything for a new machine |
+| `bin/claude-sync.sh` | Linux, macOS | the sync itself (`auto`, `status`, `link`, `install`) |
 
 Two details worth knowing, because both caused bugs here:
 
-- The background job runs through `wscript.exe`, not `powershell.exe`.
-  PowerShell always creates a console window and hides it a moment later, which
-  is the terminal that flashes for about a second.
+- On Windows the background job runs through `wscript.exe`, not
+  `powershell.exe`. PowerShell always creates a console window and hides it a
+  moment later, which is the terminal that flashes for about a second.
 - `.gitattributes` pins line endings to LF and `auto` compares content with
-  line endings normalized. Without both, a fresh clone checks out CRLF, the
-  same content hashes differently from another PC's LF copy, and the sync
+  line endings normalized. Without both, a Windows clone checks out CRLF, the
+  same content hashes differently from a Linux machine's LF copy, and the sync
   commits back and forth forever.
