@@ -123,7 +123,7 @@ cmd_status() {
 # run. Uses inotifywait or fswatch when they are installed, and falls back to
 # polling, so it works on a bare system too.
 cmd_watch() {
-  local poll=30 full=600 last_full=0 now changed
+  local poll=15 full=600 last_full=0 now changed
 
   log "watching for changes (full sync every $((full / 60)) min)"
 

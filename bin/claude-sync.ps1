@@ -213,7 +213,7 @@ function Invoke-Auto {
 # changed, plus one full exchange every FullSyncSeconds so other machines'
 # changes still arrive.
 function Invoke-Watch {
-  $pollSeconds     = 30
+  $pollSeconds     = 15
   $fullSyncSeconds = 600
   $lastFull        = [datetime]::MinValue
 
