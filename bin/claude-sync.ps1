@@ -207,44 +207,65 @@ function Invoke-Auto {
   } finally { Pop-Location }
 }
 
-# Watches for changes instead of waiting for the next scheduled run, so a change
-# reaches the remote within half a minute rather than up to ten. Polling the five
-# synced paths is cheap; it only touches the network when something actually
-# changed, plus one full exchange every FullSyncSeconds so other machines'
+# A cheap fingerprint of the synced paths: name, size and timestamp only - no
+# file contents, no git process. Reading it costs about a millisecond, against
+# ~85 ms for `git status`, which matters when it runs every 15 seconds for as
+# long as the machine is on.
+function Get-PathSignature {
+  $parts = [System.Collections.Generic.List[string]]::new()
+  foreach ($f in $Files) {
+    $i = Get-Item -LiteralPath $f.Live -Force -ErrorAction SilentlyContinue
+    if ($i) { $parts.Add(('{0}|{1}|{2}' -f $f.Repo, $i.Length, $i.LastWriteTimeUtc.Ticks)) }
+    else    { $parts.Add("$($f.Repo)|-") }
+  }
+  foreach ($name in $Dirs) {
+    $dir = Join-Path $Repo "claude\$name"
+    if (-not (Test-Path -LiteralPath $dir)) { continue }
+    foreach ($i in Get-ChildItem -LiteralPath $dir -Recurse -File -Force -ErrorAction SilentlyContinue) {
+      $parts.Add(('{0}|{1}|{2}' -f $i.FullName, $i.Length, $i.LastWriteTimeUtc.Ticks))
+    }
+  }
+  return ($parts -join "`n")
+}
+
+# Keeps the log from growing without bound on a machine left on for weeks.
+function Limit-Log {
+  if (-not (Test-Path -LiteralPath $LogFile)) { return }
+  if ((Get-Item -LiteralPath $LogFile).Length -lt 200KB) { return }
+  $keep = Get-Content -LiteralPath $LogFile -Tail 500
+  Set-Content -LiteralPath $LogFile -Value $keep
+}
+
+# Watches for changes instead of waiting for a timer, so a change reaches the
+# remote in about 20 seconds rather than up to ten minutes. Each poll only reads
+# file metadata; git and the network are touched only when something actually
+# changed, plus one full exchange every $fullSyncSeconds so other machines'
 # changes still arrive.
 function Invoke-Watch {
   $pollSeconds     = 15
   $fullSyncSeconds = 600
   $lastFull        = [datetime]::MinValue
+  $signature       = Get-PathSignature
 
   Write-Log "watching for changes every $pollSeconds s (full sync every $($fullSyncSeconds / 60) min)"
 
   while ($true) {
-    $localChanged = $false
+    Start-Sleep -Seconds $pollSeconds
 
-    foreach ($f in $Files) {
-      $src = Join-Path $Repo $f.Repo
-      if (-not (Test-Path -LiteralPath $f.Live)) { continue }
-      if (-not (Test-Path -LiteralPath $src)) { $localChanged = $true; break }
-      if ((Get-ContentHash $f.Live) -ne (Get-ContentHash $src)) { $localChanged = $true; break }
-    }
-
-    # The junctioned folders are the repo's own files, so git sees those edits.
-    if (-not $localChanged) {
-      Push-Location $Repo
-      try { if ((git status --porcelain).Length -gt 0) { $localChanged = $true } } finally { Pop-Location }
-    }
-
+    $changed    = (Get-PathSignature) -ne $signature
     $dueForFull = ((Get-Date) - $lastFull).TotalSeconds -ge $fullSyncSeconds
 
-    if ($localChanged -or $dueForFull) {
-      # Let a burst of edits settle before committing them.
-      if ($localChanged) { Start-Sleep -Seconds 5 }
-      Invoke-Auto
-      $lastFull = Get-Date
+    if (-not ($changed -or $dueForFull)) { continue }
+
+    if ($changed) {
+      # Let a burst of edits settle, then take the state as it is afterwards.
+      Start-Sleep -Seconds 5
+      $signature = Get-PathSignature
     }
 
-    Start-Sleep -Seconds $pollSeconds
+    Invoke-Auto
+    $lastFull = Get-Date
+    Limit-Log
   }
 }
 

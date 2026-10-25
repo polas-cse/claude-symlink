@@ -150,6 +150,10 @@ cmd_watch() {
       cmd_auto
       last_full="$(date +%s)"
     fi
+    # Keep the log from growing without bound.
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG")" -gt 204800 ]; then
+      tail -500 "$LOG" >"$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+    fi
   done
 }
 
