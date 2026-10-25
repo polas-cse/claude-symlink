@@ -3,20 +3,21 @@
 
   Usage:
     .\bin\claude-sync.ps1 link     # one-time per PC: junction the folders
-    .\bin\claude-sync.ps1 auto     # unattended two-way sync (what the task runs)
-    .\bin\claude-sync.ps1 pull     # git pull + copy repo files -> live config
-    .\bin\claude-sync.ps1 push     # copy live config -> repo + commit + push
+    .\bin\claude-sync.ps1 watch    # keep syncing within 30s of any change
+    .\bin\claude-sync.ps1 auto     # one unattended two-way sync
+    .\bin\claude-sync.ps1 pull     # repo files -> live config
+    .\bin\claude-sync.ps1 push     # live config -> repo, then commit and push
     .\bin\claude-sync.ps1 status   # show what differs
 
-  See README.md for the scheduled task that calls 'auto' automatically.
+  See README.md for the background job that calls 'watch' automatically.
 
   Folders (commands/agents/skills) are directory junctions, so they are always
-  live. The three single files are copied, because file symlinks on Windows need
+  live. The two single files are copied, because file symlinks on Windows need
   admin rights or Developer Mode.
 #>
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet('link', 'pull', 'push', 'status', 'auto')]
+  [ValidateSet('link', 'pull', 'push', 'status', 'auto', 'watch')]
   [string]$Command,
 
   [string]$Message
@@ -206,8 +207,50 @@ function Invoke-Auto {
   } finally { Pop-Location }
 }
 
+# Watches for changes instead of waiting for the next scheduled run, so a change
+# reaches the remote within half a minute rather than up to ten. Polling the five
+# synced paths is cheap; it only touches the network when something actually
+# changed, plus one full exchange every FullSyncSeconds so other machines'
+# changes still arrive.
+function Invoke-Watch {
+  $pollSeconds     = 15
+  $fullSyncSeconds = 600
+  $lastFull        = [datetime]::MinValue
+
+  Write-Log "watching for changes every $pollSeconds s (full sync every $($fullSyncSeconds / 60) min)"
+
+  while ($true) {
+    $localChanged = $false
+
+    foreach ($f in $Files) {
+      $src = Join-Path $Repo $f.Repo
+      if (-not (Test-Path -LiteralPath $f.Live)) { continue }
+      if (-not (Test-Path -LiteralPath $src)) { $localChanged = $true; break }
+      if ((Get-ContentHash $f.Live) -ne (Get-ContentHash $src)) { $localChanged = $true; break }
+    }
+
+    # The junctioned folders are the repo's own files, so git sees those edits.
+    if (-not $localChanged) {
+      Push-Location $Repo
+      try { if ((git status --porcelain).Length -gt 0) { $localChanged = $true } } finally { Pop-Location }
+    }
+
+    $dueForFull = ((Get-Date) - $lastFull).TotalSeconds -ge $fullSyncSeconds
+
+    if ($localChanged -or $dueForFull) {
+      # Let a burst of edits settle before committing them.
+      if ($localChanged) { Start-Sleep -Seconds 5 }
+      Invoke-Auto
+      $lastFull = Get-Date
+    }
+
+    Start-Sleep -Seconds $pollSeconds
+  }
+}
+
 switch ($Command) {
   'link'   { Invoke-Link }
+  'watch'  { Invoke-Watch }
   'pull'   { Invoke-Pull }
   'push'   { Invoke-Push }
   'status' { Invoke-Status }

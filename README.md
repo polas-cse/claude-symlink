@@ -47,7 +47,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ### Step 4 — Restart the Claude app
 
-Done. It syncs every 10 minutes from now on, with no visible window.
+Done. It now syncs about 20 seconds after any change, with no visible window.
 
 ---
 
@@ -78,7 +78,7 @@ Everything after it runs as you.
 
 ### Step 4 — Restart the Claude app
 
-Done. A cron entry syncs every 10 minutes.
+Done. A watcher starts at boot and syncs about 20 seconds after any change.
 
 ---
 
@@ -116,9 +116,20 @@ Done.
 
 # Day to day — every OS
 
-Nothing. Change your config on any machine and it spreads by itself.
+Nothing. Change your config on any machine and it is pushed about 20 seconds
+later, so a power cut or a shutdown cannot leave much behind.
 
-Only if you want it **right now** instead of waiting ten minutes:
+A background watcher checks the synced paths every 15 seconds, waits 5 seconds
+for your edits to settle, then commits and pushes. On Linux and macOS it uses
+`inotifywait` or `fswatch` when they are installed and reacts instantly; it
+falls back to the same 15-second check without them. Every 10 minutes it also
+does a full exchange, so other machines' changes arrive even when nothing
+changed here.
+
+Nothing is ever lost by a shutdown either way: the file stays on that machine's
+disk, and the next time it boots, the watcher pushes it.
+
+Only if you want it **right now** instead of waiting those seconds:
 
 ```powershell
 & C:\claude-sync\bin\claude-sync.ps1 auto
@@ -224,8 +235,7 @@ Scripts:
 | `bin/claude-sync.ps1` | Windows | the sync itself (`auto`, `status`, `link`, `push`, `pull`) |
 | `bin/install-task.ps1` | Windows | runs the sync as a scheduled task |
 | `bin/install-startup.ps1` | Windows | runs it from the Startup folder instead, no admin |
-| `bin/run-hidden.vbs` | Windows | windowless launcher used by the task |
-| `bin/run-loop.vbs` | Windows | windowless 10-minute loop used by the Startup folder |
+| `bin/run-watch.vbs` | Windows | windowless launcher that keeps the watcher running |
 | `bin/bootstrap.sh` | Linux, macOS | Step 3: does everything for a new machine |
 | `bin/claude-sync.sh` | Linux, macOS | the sync itself (`auto`, `status`, `link`, `install`) |
 
