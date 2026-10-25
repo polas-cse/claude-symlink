@@ -6,15 +6,15 @@ Keeps Claude Code / Claude Desktop configuration identical on every PC.
 
 | Repo path | Live path | How |
 | --- | --- | --- |
-| `claude/settings.json` | `~/.claude/settings.json` | copied by `pull`/`push` |
-| `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | copied by `pull`/`push` |
+| `claude/settings.json` | `~/.claude/settings.json` | copied by `auto` |
+| `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | copied by `auto` |
 | `claude/commands/` | `~/.claude/commands/` | directory junction (live) |
 | `claude/agents/` | `~/.claude/agents/` | directory junction (live) |
 | `claude/skills/` | `~/.claude/skills/` | directory junction (live) |
 
-Folders are junctions, so edits there are instantly in the repo. The three
-single files are copies, because file symlinks on Windows require admin rights
-or Developer Mode.
+Folders are junctions, so edits there are instantly in the repo. The two
+single files are copied by `auto`, because file symlinks on Windows require
+admin rights or Developer Mode.
 
 ## What is NOT synced, on purpose
 
