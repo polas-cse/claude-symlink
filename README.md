@@ -37,6 +37,12 @@ cd ~\claude-sync
 .\bin\install-task.ps1
 ```
 
+The task runs `bin/run-hidden.vbs` through `wscript.exe`, not `powershell.exe`
+directly. PowerShell always creates a console window and hides it only
+afterwards, which showed up as a terminal flashing for about a second on every
+run; `wscript.exe` is windowless, so nothing appears at all. If you registered
+the task before this change, re-run `install-task.ps1` to replace it.
+
 Check it, or remove it:
 
 ```powershell
@@ -102,16 +108,25 @@ session. Copying it between PCs would overwrite each machine's own window state
 for no gain. If you later add MCP servers to Claude Desktop, add that file back
 to `$Files` in `bin/claude-sync.ps1` and keep any tokens in env vars.
 
-## Setting up a new PC
+## Setting up a new PC — one command
+
+Sign in to GitHub for git on that PC first (the clone is from a private repo),
+then paste this into PowerShell. It clones, junctions the folders, syncs the
+config and registers the hidden background task:
 
 ```powershell
-git clone https://github.com/polas-cse/claude-symlink.git $HOME\claude-sync
-cd ~\claude-sync
-.\bin\claude-sync.ps1 link
-.\bin\claude-sync.ps1 auto
+powershell -NoProfile -ExecutionPolicy Bypass -Command "git clone https://github.com/polas-cse/claude-symlink.git $HOME\claude-sync; & $HOME\claude-sync\bin\bootstrap.ps1"
 ```
 
-Then register the scheduled task from the **Automatic sync** section above.
+Already cloned? Just run the second half:
+
+```powershell
+& $HOME\claude-sync\bin\bootstrap.ps1
+```
+
+`bootstrap.ps1` is safe to re-run: each step checks before acting, and anything
+it replaces is kept as `*.bak-<timestamp>`. It takes `-Repo <path>` for a
+different location and `-IntervalMinutes <n>` for a different sync interval.
 
 `link` preserves whatever that PC already had: existing `commands/`, `agents/`
 or `skills/` contents are copied into the repo first, and any replaced file or
@@ -126,7 +141,11 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ## Notes
 
 - Two PCs editing the same file is a normal git conflict — resolve it in the
-  repo, then `pull` again.
+  repo, then `auto` again.
+- `.gitattributes` pins line endings to LF, and `auto` compares content with
+  line endings normalized. Both are needed: without them a fresh clone checks
+  out CRLF, the same content hashes differently from another PC's LF copy, and
+  the sync commits back and forth forever.
 - `claude-sync` does not sync Claude Code plugins installed from a marketplace;
   re-add those per machine, or commit `~/.claude/plugins/config.json` yourself
   if you want that too.
