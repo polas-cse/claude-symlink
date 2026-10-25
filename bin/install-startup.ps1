@@ -2,7 +2,7 @@
   Admin-free alternative to install-task.ps1.
 
   Instead of a scheduled task, this drops a tiny launcher into your Startup
-  folder. It starts run-loop.vbs at logon, which syncs every 10 minutes with no
+  folder. It starts run-watch.vbs at logon, which syncs within 30s of a change, with no
   console window. Nothing here touches the Task Scheduler, so it cannot hit the
   "Access is denied" you get when a task in the root folder needs elevation.
 
@@ -19,7 +19,7 @@ $ErrorActionPreference = 'Stop'
 
 $startup  = [Environment]::GetFolderPath('Startup')
 $launcher = Join-Path $startup 'claude-sync.vbs'
-$loop     = Join-Path $PSScriptRoot 'run-loop.vbs'
+$loop     = Join-Path $PSScriptRoot 'run-watch.vbs'
 
 if ($Remove) {
   if (Test-Path -LiteralPath $launcher) {
@@ -29,13 +29,13 @@ if ($Remove) {
     Write-Host 'Nothing installed in Startup.' -ForegroundColor DarkGray
   }
   Get-CimInstance Win32_Process -Filter "Name = 'wscript.exe'" |
-    Where-Object { $_.CommandLine -like '*run-loop.vbs*' } |
-    ForEach-Object { Stop-Process -Id $_.ProcessId -Force; Write-Host "Stopped running loop (pid $($_.ProcessId))" -ForegroundColor Green }
+    Where-Object { $_.CommandLine -like '*run-watch.vbs*' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force; Write-Host "Stopped running watcher (pid $($_.ProcessId))" -ForegroundColor Green }
   return
 }
 
 if (-not (Test-Path -LiteralPath $loop)) {
-  throw "run-loop.vbs not found next to this script ($PSScriptRoot)."
+  throw "run-watch.vbs not found next to this script ($PSScriptRoot)."
 }
 
 # A one-line stub with the real path baked in, so the Startup entry keeps
@@ -47,11 +47,11 @@ CreateObject("WScript.Shell").Run "wscript.exe ""$loop""", 0, False
 Set-Content -LiteralPath $launcher -Value $stub -Encoding ASCII
 
 Write-Host "Installed $launcher" -ForegroundColor Green
-Write-Host '  It starts at logon and syncs every 10 minutes, with no visible window.'
+Write-Host '  It starts at logon and syncs within 30s of any change, with no visible window.'
 
 if ($StartNow) {
   Get-CimInstance Win32_Process -Filter "Name = 'wscript.exe'" |
-    Where-Object { $_.CommandLine -like '*run-loop.vbs*' } |
+    Where-Object { $_.CommandLine -like '*run-watch.vbs*' } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
   Start-Process 'wscript.exe' -ArgumentList "`"$loop`"" -WindowStyle Hidden
   Write-Host '  Started it now too.' -ForegroundColor Green

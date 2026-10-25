@@ -19,9 +19,9 @@ if ($Remove) {
   return
 }
 
-$launcher = Join-Path $PSScriptRoot 'run-hidden.vbs'
+$launcher = Join-Path $PSScriptRoot 'run-watch.vbs'
 if (-not (Test-Path -LiteralPath $launcher)) {
-  throw "run-hidden.vbs not found next to this script ($PSScriptRoot)."
+  throw "run-watch.vbs not found next to this script ($PSScriptRoot)."
 }
 
 # Go through wscript.exe, not powershell.exe: powershell always creates a
@@ -52,10 +52,10 @@ try {
 }
 
 $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-$ok   = $task -and ($task.Actions.Execute -eq 'wscript.exe') -and ($task.Actions.Arguments -like '*run-hidden.vbs*')
+$ok   = $task -and ($task.Actions.Execute -eq 'wscript.exe') -and ($task.Actions.Arguments -like '*run-watch.vbs*')
 
 if ($ok) {
-  Write-Host "Task '$TaskName' is set: at logon and every $IntervalMinutes minutes, no window." -ForegroundColor Green
+  Write-Host "Task '$TaskName' is set: starts the watcher at logon, no window." -ForegroundColor Green
   if ($failed) {
     Write-Host "  (registration reported `"$failed`", but the task reads correctly now)" -ForegroundColor DarkGray
   }
