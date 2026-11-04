@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [],
-    "deny": []
+    "deny": [], "_check": "sync check 230345"
   },
   "env": {}
 }
+
